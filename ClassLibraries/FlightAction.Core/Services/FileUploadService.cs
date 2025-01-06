@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
+using System.Web;
 using CSharpFunctionalExtensions;
 using FlightAction.Core.Api;
 using FlightAction.Core.Services.Interfaces;
@@ -87,13 +88,13 @@ namespace FlightAction.Core.Services
                             var fileUploadResult = await UploadFileToServerAsync(filePath);
                             if (fileUploadResult.IsSuccess)
                             {
-                                var currentProcessedDirectory = PrepareProcessedDirectoryByFileType(prop.Name);
+                                var currentProcessedDirectory = PrepareProcessedDirectoryByFileType(filePath, prop.Name);
                                 _directoryUtility.Move(filePath, currentProcessedDirectory);
                             }
                             else {
 
                                 // move the failed file to failure directory
-                                var currentFailureFileDirectory = PrepareFailureFileDirectory(prop.Name);
+                                var currentFailureFileDirectory = PrepareFailureFileDirectory(filePath, prop.Name);
                                 _directoryUtility.Move(filePath, currentFailureFileDirectory);
 
                             }
@@ -119,25 +120,39 @@ namespace FlightAction.Core.Services
             return currentProcessedDirectory;
         }
 
-        private string PrepareProcessedDirectoryByFileType(string fileType)
+        private string PrepareProcessedDirectoryByFileType(string filePath, string fileType)
         {
+
+            string uniqueFileName = GetUniqueFileName(filePath);
             var currentProcessedDirectory = Path.Combine(_processedDirectory, fileType);
             currentProcessedDirectory = Path.Combine(currentProcessedDirectory, DateTime.Now.Year.ToString() + '-' + DateTime.Now.Month.ToString(), DateTime.Now.ToString(Constants.DateFormatter.yyyy_MM_dd_Dash_Delimited));
-
+           
             _directoryUtility.CreateFolderIfNotExistAsync(currentProcessedDirectory);
+            currentProcessedDirectory = Path.Combine(currentProcessedDirectory, uniqueFileName);
 
             return currentProcessedDirectory;
         }
-        private string PrepareFailureFileDirectory(string fileType)
+        private string PrepareFailureFileDirectory(string filePath, string fileType)
         {
+            string uniqueFileName = GetUniqueFileName(filePath);
             var currentProcessedDirectory = Path.Combine(_FailureDirectory, fileType);
             currentProcessedDirectory = Path.Combine(currentProcessedDirectory, DateTime.Now.Year.ToString() + '-' + DateTime.Now.Month.ToString(), DateTime.Now.ToString(Constants.DateFormatter.yyyy_MM_dd_Dash_Delimited));
+            
 
             _directoryUtility.CreateFolderIfNotExistAsync(currentProcessedDirectory);
+            currentProcessedDirectory = Path.Combine(currentProcessedDirectory, uniqueFileName);
 
             return currentProcessedDirectory;
         }
+        
 
+        private string GetUniqueFileName(string existingFilePath)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(existingFilePath);
+            var extension = Path.GetExtension(existingFilePath);
+            var uniqueFileName = $"{fileName}_{DateTime.UtcNow:MMddHHmmssfff}{extension}";
+            return uniqueFileName;
+        }
 
         private async Task<Result<bool>> UploadFileToServerAsync(string filePath)
         {
